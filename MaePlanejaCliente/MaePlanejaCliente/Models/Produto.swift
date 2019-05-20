@@ -7,6 +7,7 @@
 //
 
 import Foundation
+
 class Produto {
     var nome_item: String?
     var preco: String?

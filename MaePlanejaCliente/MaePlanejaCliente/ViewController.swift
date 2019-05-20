@@ -12,15 +12,70 @@ import FirebaseStorage
 
 import NavigationDrawer
 
-class ViewController: UIViewController, UIViewControllerTransitioningDelegate {
+class ViewController: UIViewController, UIViewControllerTransitioningDelegate, UITableViewDelegate, UITableViewDataSource {
     
     let interactor = Interactor()
+    
+    var produtosList:[Produto] = []
+    
+    @IBOutlet weak var tableViewItems: UITableView!
     
     override func viewDidLoad() {
         super.viewDidLoad()
         //populate()
-    
+        
+        self.tableViewItems.delegate = self
+        self.tableViewItems.dataSource = self
+        
+        //Obtendo os itens do banco:
+        getProdutos()
+        
+        
     }
+    /* ----- Obter produtos: ----- */
+    func getProdutos(){
+        
+        let produtoRef = Database.database().reference().child(EnumTables.Produto.rawValue)
+        produtoRef.observe(.value) { (snap) in
+            if snap.childrenCount > 0 {
+                self.produtosList.removeAll()
+                for produtos in snap.children.allObjects as! [DataSnapshot]{
+                    let produtoObject = produtos.value as? [String: AnyObject]
+                    let produtoNome = produtoObject?["nome_item"]
+                    let produtoImagem = produtoObject?["imagem"]
+                    let produtoMes = produtoObject?["mes"]
+                    let produtoPreco = produtoObject?["preco"]
+                    let produto = Produto(nome_item: produtoNome as? String , preco: produtoPreco as? String,
+                                          imagem: produtoImagem as? String,
+                                          mes: produtoMes as? String, imagens: [""] )
+                    self.produtosList.append(produto)
+                }
+            }
+            self.tableViewItems.reloadData()
+        }
+    }
+    
+    /* ----- TableView ----- */
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return produtosList.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "itemCell") as! ItensTableViewCell
+        let produto = produtosList[indexPath.row]
+        cell.titleTableViewCell.text = produto.nome_item
+        cell.priceTableViewCell.text = produto.preco
+        downloadImage(url: produto.imagem ?? "", downloadImageView: cell.imagemTableViewCell)
+        
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 200
+    }
+    
+    /* ----- TableView ----- */
     
     /* ----- MENU ----- */
     
@@ -65,6 +120,26 @@ class ViewController: UIViewController, UIViewControllerTransitioningDelegate {
     }
     
     /* ----- MENU ----- */
+    
+    @objc func downloadImage(url:String,downloadImageView:UIImageView) {
+        let imageURL = URL(string:url)!
+        
+        let dataTask = URLSession.shared.dataTask(with: imageURL) {
+            (data, reponse, error) in
+            if let error = error {
+                print(error.localizedDescription)
+                return
+            }
+            
+            if let data = data {
+                DispatchQueue.main.async {
+                    downloadImageView.image = UIImage(data: data)
+                }
+            }
+        }
+        
+        dataTask.resume()
+    }
     
     func populate(){
         let ref: DatabaseReference! = Database.database().reference()
